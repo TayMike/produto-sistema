@@ -6,7 +6,9 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.servlet.support.ServletUriComponentsBuilder;
 
+import java.net.URI;
 import java.util.List;
 import java.util.Optional;
 
@@ -20,7 +22,11 @@ public class ProdutoController {
     @GetMapping("/{sku}")
     public ResponseEntity<Produto> encontrarProduto(@PathVariable String sku) {
         Optional<Produto> produto = produtoService.encontrarProduto(sku);
-        return produto.map(ResponseEntity::ok).orElseGet(() -> ResponseEntity.status(HttpStatus.NOT_FOUND).build());
+        if (produto.isPresent()) {
+            return ResponseEntity.ok(produto.get());
+        } else {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
     }
 
     @GetMapping("/todos")
@@ -36,28 +42,34 @@ public class ProdutoController {
     public ResponseEntity<Produto> cadastrarProduto(@RequestBody Produto produto) {
         try {
             Produto produtoCadastrado = produtoService.cadastrarProduto(produto);
-            return ResponseEntity.ok(produtoCadastrado);
-        } catch(Exception e) {
+            URI uri = ServletUriComponentsBuilder.fromCurrentRequest()
+                    .path("/{sku}")
+                    .buildAndExpand(produtoCadastrado.getSku())
+                    .toUri();
+            return ResponseEntity.created(uri).body(produtoCadastrado);
+        } catch (Exception e) {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 
     @PutMapping("/alterar")
     public ResponseEntity<Produto> alterarProduto(@RequestBody Produto produto) {
-        try {
+        Optional<Produto> produtoVerificado = produtoService.encontrarProduto(produto.getSku());
+        if (produtoVerificado.isPresent()) {
             Produto produtoAlterado = produtoService.alterarProduto(produto);
             return ResponseEntity.ok(produtoAlterado);
-        } catch(Exception e) {
+        } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
 
-    @DeleteMapping("/deletar/{cpf}")
-    public ResponseEntity<Produto> deletarProduto(@PathVariable String cpf) {
-        try {
-            produtoService.deletarProduto(cpf);
-            return ResponseEntity.ok().build();
-        } catch(Exception e) {
+    @DeleteMapping("/{sku}")
+    public ResponseEntity<Produto> deletarProduto(@PathVariable String sku) {
+        Optional<Produto> produto = produtoService.encontrarProduto(sku);
+        if (produto.isPresent()) {
+            produtoService.deletarProduto(sku);
+            return ResponseEntity.noContent().build();
+        } else {
             return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
         }
     }
